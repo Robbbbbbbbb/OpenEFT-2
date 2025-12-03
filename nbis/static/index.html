@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenEFT Converter</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>OpenEFT Converter</h1>
+        
+        <!-- Step 1: Upload -->
+        <div id="step-upload" class="step">
+            <h2>Step 1: Upload Fingerprint Card</h2>
+            <p>Select a high-resolution scan of an FD-258 card (JPG/PNG).</p>
+            <input type="file" id="file-input" accept="image/*">
+            <button id="btn-upload">Upload</button>
+        </div>
+
+        <!-- Step 1.5: Crop & Rotate -->
+        <div id="step-crop" class="step hidden">
+            <h2>Step 1.5: Rotate and Crop</h2>
+            <p>Rotate the image if needed, then drag a box to crop the fingerprint area. Click "Next" when ready.</p>
+            <div class="toolbar">
+                <button id="btn-rotate-left">↶ Rotate Left</button>
+                <button id="btn-rotate-right">↷ Rotate Right</button>
+                <button id="btn-reset-crop">Reset</button>
+            </div>
+            <div class="canvas-container">
+                <canvas id="crop-canvas"></canvas>
+            </div>
+            <br>
+            <button id="btn-confirm-crop">Next</button>
+        </div>
+
+        <!-- Step 2: Select Type 14 Fingerprints -->
+        <div id="step-align" class="step hidden">
+            <h2>Step 2: Select Type 14 Fingerprints</h2>
+            <p>Drag and resize the boxes to select the Left Slap, Right Slap, and Thumbs.</p>
+            <div class="canvas-container">
+                <canvas id="editor-canvas"></canvas>
+            </div>
+            <div class="controls">
+                <button id="btn-confirm-boxes">Confirm Boxes</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Data Entry -->
+        <div id="step-data" class="step hidden">
+            <h2>Step 3: Enter Subject Information</h2>
+            <form id="type2-form">
+                <div class="form-group">
+                    <label>Full Name</label><input type="text" name="2.018" required>
+                </div>
+                <div class="form-group">
+                    <label>Date of Birth (YYYYMMDD)</label><input type="text" name="2.022" required pattern="\d{8}" placeholder="19800101">
+                    <label>SSN (Numbers only)</label><input type="text" name="2.016" required pattern="\d{9}">
+                </div>
+                <div class="form-group">
+                    <label>Sex (M/F)</label><input type="text" name="2.024" maxlength="1" required>
+                    <label>Race (W/B/A/I/U)</label><input type="text" name="2.025" maxlength="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Height (inches)</label><input type="text" name="2.027" placeholder="70" required>
+                    <label>Weight (lbs)</label><input type="text" name="2.029" placeholder="180" required>
+                </div>
+                <div class="form-group">
+                    <label>Eye Color (XXX)</label><input type="text" name="2.031" maxlength="3" required placeholder="BRO">
+                    <label>Hair Color (XXX)</label><input type="text" name="2.032" maxlength="3" required placeholder="BLK">
+                </div>
+                <div class="form-group">
+                    <label>Place of Birth (State/Country 2 chars)</label><input type="text" name="2.020" maxlength="2" required>
+                    <label>Citizenship (2 chars)</label><input type="text" name="2.021" maxlength="2" required value="US">
+                </div>
+                <div class="form-group">
+                    <label>Address</label><input type="text" name="2.041" required>
+                </div>
+                <button type="submit" id="btn-generate">Generate EFT</button>
+            </form>
+        </div>
+
+        <!-- Step 4: Download -->
+        <div id="step-download" class="step hidden">
+            <h2>Step 4: Download</h2>
+            <p>Your EFT file is ready.</p>
+            <a id="download-link" href="#" class="button">Download EFT</a>
+            <br><br>
+            <button id="btn-delete" class="danger">Delete File & Start Over</button>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>

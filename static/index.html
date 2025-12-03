@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenEFT Converter</title>
+    <link rel="icon" type="image/png" href="static/favico.png">
+    <link rel="stylesheet" href="static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Specific styles for Edit view */
+        .raw-view-header {
+            background: #444;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .raw-view-content {
+            background: #222;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .raw-view-content.show {
+            display: block;
+        }
+
+        .mode-selection-card {
+            background: #333;
+            border: 1px solid #555;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .mode-selection-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-color);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <img src="static/oeftlogo.png" alt="OpenEFT">
+            </div>
+            <ul class="nav-links">
+                <li class="active" onclick="location.reload()">New EFT</li>
+                <li id="nav-capture">Capture Prints</li>
+                <li id="nav-edit">View/Edit EFT</li>
+                <hr style="border: 0; border-top: 1px solid #555; margin: 10px 20px;">
+                <li id="nav-info">Info</li>
+                <li id="nav-about">About</li>
+            </ul>
+            <div style="flex: 1"></div>
+            <div style="padding: 20px; color: #555; font-size: 0.8rem; text-align: center; border-top: 1px solid #555;">
+                <div style="margin-bottom: 5px;">v2.0.1</div>
+                <div id="latest-version-container">Latest: <span id="latest-version-text">...</span></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-bar">
+                <h1>Fingerprint Card Processing</h1>
+                <div></div>
+            </header>
+
+            <!-- Wizard Progress (Only for New EFT) -->
+            <div class="wizard-progress" id="wizard-progress-bar">
+                <div class="progress-labels">
+                    <div class="progress-step active" id="p-step-1">1. Print Cards</div>
+                    <div class="progress-step" id="p-step-2">2. Personal Details</div>
+                    <div class="progress-step" id="p-step-3">3. Review</div>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+
+                <!-- CAPTURE PRINTS SECTION -->
+                <div id="section-capture-prints" class="hidden">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>Live Capture</h2>
+                        <div id="scanner-status"
+                            style="padding: 5px 10px; border-radius: 4px; background: #555; font-size: 0.9rem;">
+                            ⚪ Scanner Disconnected
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <!-- Capture Steps -->
+                        <div class="wizard-progress" style="margin-bottom: 20px;">
+                            <div class="progress-labels">
+                                <div class="progress-step active" id="cap-step-1">1. Left Slap</div>
+                                <div class="progress-step" id="cap-step-2">2. Right Slap</div>
+                                <div class="progress-step" id="cap-step-3">3. Thumbs</div>
+                            </div>
+                        </div>
+
+                        <!-- Live Preview / Result -->
+                        <div style="display: flex; gap: 20px;">
+                            <!-- Main Preview -->
+                            <div
+                                style="flex: 2; text-align: center; background: #222; padding: 20px; border-radius: 8px;">
+                                <h3 id="capture-instruction">Place Left 4 Fingers</h3>
+                                <div
+                                    style="position: relative; margin: 20px auto; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                                    <img id="scanner-preview"
+                                        style="max-width: 100%; max-height: 400px; border: 2px dashed #444;">
+                                    <div id="capture-overlay"
+                                        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+                                        <!-- Overlays like 'Good', 'Bad' can go here -->
+                                    </div>
+                                </div>
+                                <div style="display: flex; justify-content: center; gap: 10px;">
+                                    <button id="btn-cap-start" class="btn">Start Capture</button>
+                                    <button id="btn-cap-cancel" class="btn btn-secondary hidden">Cancel</button>
+                                    <button id="btn-cap-accept" class="btn hidden"
+                                        style="background: var(--accent-color); color: #000;">Accept & Next</button>
+                                    <button id="btn-cap-retry" class="btn btn-secondary hidden">Retry</button>
+                                    <button id="btn-cap-reset" class="btn btn-secondary hidden"
+                                        style="margin-left: 10px; background: #e74c3c; color: white;">Reset All</button>
+                                </div>
+                            </div>
+
+                            <!-- Mini Gallery of Captured -->
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                                <div class="review-img-card">
+                                    <label>Left Slap</label>
+                                    <img id="thumb-l-slap"
+                                        style="width: 100%; height: 100px; object-fit: contain; background: #000;">
+                                </div>
+                                <div class="review-img-card">
+                                    <label>Right Slap</label>
+                                    <img id="thumb-r-slap"
+                                        style="width: 100%; height: 100px; object-fit: contain; background: #000;">
+                                </div>
+                                <div class="review-img-card">
+                                    <label>Thumbs</label>
+                                    <img id="thumb-thumbs"
+                                        style="width: 100%; height: 100px; object-fit: contain; background: #000;">
+                                </div>
+                                <button id="btn-cap-finalize" class="btn hidden" style="margin-top: auto;">Done - Create
+                                    EFT</button>
+                            </div>
+                        </div>
+
+                        <!-- Console Output -->
+                        <div
+                            style="margin-top: 20px; background: #111; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; height: 150px; overflow-y: auto;">
+                            <div id="console-output">Debug Log...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW EFT SECTION -->
+                <div id="section-new-eft">
+                    <!-- Step 1: Upload and Crop -->
+                    <div id="step-1-panel" class="panel">
+
+                        <!-- View: Upload -->
+                        <div id="view-upload">
+                            <div class="upload-area">
+                                <h2>Upload Fingerprint Card</h2>
+                                <p>Select a high-resolution scan (600 DPI recommended) of an FD-258 card.</p>
+                                <br>
+                                <input type="file" id="file-input" accept="image/*" class="hidden">
+                                <button class="btn" onclick="document.getElementById('file-input').click()">Choose
+                                    File</button>
+                            </div>
+                        </div>
+
+                        <!-- View: Crop & Rotate -->
+                        <div id="view-crop" class="hidden">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                <h3>Crop Card Area</h3>
+                                <div>
+                                    <button id="btn-rotate-left" class="btn btn-secondary">↶ Rotate</button>
+                                    <button id="btn-rotate-right" class="btn btn-secondary">↷ Rotate</button>
+                                    <button id="btn-reset-crop" class="btn btn-secondary">Reset</button>
+                                </div>
+                            </div>
+                            <div class="canvas-wrapper">
+                                <canvas id="crop-canvas"></canvas>
+                            </div>
+                            <p style="text-align: center; margin-top: 10px; color: var(--text-muted);">
+                                Drag to select the fingerprint area.
+                            </p>
+                        </div>
+
+                        <!-- View: Mode Selection (New) -->
+                        <div id="view-mode-select" class="hidden">
+                            <h2 style="text-align:center; margin-bottom:30px;">Select Generation Mode</h2>
+                            <div style="display: flex; gap: 20px; justify-content: center;">
+                                <div class="mode-selection-card" id="btn-gen-atf">
+                                    <h3>ATF Compliant</h3>
+                                    <div
+                                        style="background: var(--accent-color); color:black; font-weight:bold; font-size:0.8rem; padding:2px 6px; border-radius:4px; display:inline-block; margin-bottom:5px;">
+                                        RECOMMENDED</div>
+                                    <p>Standard Type-14 Records</p>
+                                    <small style="color: #aaa;">(Left Slap, Right Slap, Thumbs)</small>
+                                </div>
+                                <div class="mode-selection-card" id="btn-gen-rolled">
+                                    <h3>Rolled Prints</h3>
+                                    <p>Full Type-4 Records</p>
+                                    <small style="color: #aaa;">(10 Rolled + 4 Plain)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View: Box Selection -->
+                        <div id="view-box" class="hidden">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                <h3 id="box-selection-title">Select Print Areas</h3>
+                                <div class="toolbar">
+                                    <span style="margin-right: 10px; color: var(--accent-color);">Drag boxes to
+                                        align</span>
+                                </div>
+                            </div>
+                            <div class="canvas-wrapper">
+                                <canvas id="editor-canvas"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Step 2: Form Data -->
+                    <div id="step-2-panel" class="panel hidden">
+                        <form id="type2-form">
+                            <!-- 1. Personal Details -->
+                            <div class="form-section">
+                                <h3>Personal Details</h3>
+                                <div class="form-grid-2-col">
+                                    <div class="form-group">
+                                        <label>First Name</label>
+                                        <input type="text" id="fname" name="fname" required class="sentence-case">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Last Name</label>
+                                        <input type="text" id="lname" name="lname" required class="sentence-case">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Middle Name (Optional)</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <input type="text" id="mname" name="mname" class="sentence-case"
+                                                style="flex:1">
+                                            <label style="display: flex; align-items: center; white-space: nowrap;">
+                                                <input type="checkbox" id="no-mn"
+                                                    style="width: auto; margin-right: 5px;"> NMN
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Date of Birth</label>
+                                        <input type="date" id="dob-input" name="dob" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Place of Birth (Country)</label>
+                                        <select name="2.020" id="pob-select" required></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Citizenship</label>
+                                        <select name="2.021" id="ctz-select" required></select>
+                                    </div>
+
+                                    <div class="form-group span-full">
+                                        <label>Social Security Number ⓘ</label>
+                                        <input type="text" name="2.016" required pattern="\d{9}"
+                                            placeholder="xxxxxxxxx">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Contact and Address -->
+                            <div class="form-section">
+                                <h3>Contact & Address</h3>
+                                <div class="form-grid-2-col">
+                                    <div class="form-group span-full">
+                                        <label>Street Address</label>
+                                        <input type="text" name="addr_street" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>City</label>
+                                        <input type="text" name="addr_city" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>State</label>
+                                        <select name="addr_state" id="addr-state" required></select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>ZIP Code</label>
+                                        <input type="text" name="addr_zip" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Demographic Details -->
+                            <div class="form-section">
+                                <h3>Demographic Details</h3>
+                                <div class="form-grid-2-col">
+                                    <div class="form-group">
+                                        <label>Sex</label>
+                                        <select name="2.024" required>
+                                            <option value="">Select...</option>
+                                            <option value="M">Male</option>
+                                            <option value="F">Female</option>
+                                            <option value="X">Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Race</label>
+                                        <select name="2.025" required>
+                                            <option value="">Select...</option>
+                                            <option value="A">Asian</option>
+                                            <option value="B">Black</option>
+                                            <option value="I">American Indian</option>
+                                            <option value="W">White / Hispanic</option>
+                                            <option value="U">Unknown</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Hair Color</label>
+                                        <select name="2.032" required>
+                                            <option value="">Select...</option>
+                                            <option value="BAL">Bald</option>
+                                            <option value="BLK">Black</option>
+                                            <option value="BLN">Blonde</option>
+                                            <option value="BRO">Brown</option>
+                                            <option value="GRY">Gray</option>
+                                            <option value="RED">Red</option>
+                                            <option value="XXX">Unknown</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Eye Color</label>
+                                        <select name="2.031" required>
+                                            <option value="">Select...</option>
+                                            <option value="BLK">Black</option>
+                                            <option value="BLU">Blue</option>
+                                            <option value="BRO">Brown</option>
+                                            <option value="GRY">Gray</option>
+                                            <option value="GRN">Green</option>
+                                            <option value="HAZ">Hazel</option>
+                                            <option value="MUL">Multi-Colored</option>
+                                            <option value="XXX">Unknown</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Height</label>
+                                        <select id="height-select" name="2.027" required></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Weight (lbs)</label>
+                                        <input type="number" name="2.029" min="0" max="499" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 3: Review -->
+                    <div id="step-3-panel" class="panel hidden">
+                        <div class="review-grid">
+                            <div class="review-summary">
+                                <h3>Summary</h3>
+                                <div id="summary-content"></div>
+                            </div>
+                            <div class="review-images-container">
+                                <h3>Fingerprint Crops</h3>
+                                <div class="slaps-row">
+                                    <div class="review-img-card">
+                                        <label>Left Slap</label>
+                                        <div id="review-img-lslap"></div>
+                                    </div>
+                                    <div class="review-img-card">
+                                        <label>Right Slap</label>
+                                        <div id="review-img-rslap"></div>
+                                    </div>
+                                </div>
+                                <div class="thumbs-row">
+                                    <div class="review-img-card">
+                                        <label>Thumbs</label>
+                                        <div id="review-img-thumbs"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View/Edit EFT Sesion -->
+                <div id="section-edit-eft" class="hidden">
+                    <h2 style="margin-bottom: 20px;">View / Edit EFT</h2>
+
+                    <!-- View: Upload EFT -->
+                    <div id="edit-view-upload" class="panel">
+                        <div class="upload-area">
+                            <h2>Upload Existing EFT File</h2>
+                            <p>Select an existing .EFT file to view or modify.</p>
+                            <br>
+                            <input type="file" id="eft-file-input" class="hidden">
+                            <button class="btn" onclick="document.getElementById('eft-file-input').click()">Choose
+                                File</button>
+                        </div>
+                    </div>
+
+                    <!-- View: Mode Selection -->
+                    <div id="edit-view-mode" class="panel hidden">
+                        <div style="display: flex; gap: 20px; justify-content: center; margin-top: 50px;">
+                            <div class="mode-selection-card" id="btn-mode-read">
+                                <h3>Read Only</h3>
+                                <p>View contents securely without modifying.</p>
+                            </div>
+                            <div class="mode-selection-card" id="btn-mode-edit">
+                                <h3>Edit Mode</h3>
+                                <p>Unlock fields for advanced editing.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- View: Editor/Viewer -->
+                    <div id="edit-view-main" class="panel hidden">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 id="editor-title">EFT Content</h3>
+                            <button id="btn-save-eft" class="btn hidden">Save & Export</button>
+                        </div>
+
+                        <!-- Raw Data Toggle -->
+                        <div class="raw-view-header"
+                            onclick="document.getElementById('raw-content').classList.toggle('show')">
+                            <span>Raw Data Inspector (an2k)</span>
+                            <span style="font-size: 0.8rem;">▼</span>
+                        </div>
+                        <div id="raw-content" class="raw-view-content">Loading...</div>
+
+                        <br>
+
+                        <!-- Editor Form -->
+                        <form id="edit-form">
+                            <div class="form-grid" id="edit-form-grid">
+                                <!-- Fields injected by JS -->
+                            </div>
+                        </form>
+
+                        <br>
+
+                        <!-- Image Gallery -->
+                        <h3>Embedded Images (Type 14)</h3>
+                        <div class="review-images-container">
+                            <div class="slaps-row" id="edit-img-container">
+                                <!-- Images injected by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Content Sesion -->
+                <div id="section-dynamic-content" class="hidden">
+                    <h2 id="dynamic-title" style="margin-bottom: 20px;"></h2>
+                    <div id="dynamic-content-body" class="panel">
+                        <!-- Content injected here -->
+                    </div>
+                </div>
+
+                <!-- Step 4: Download (Overlay or Panel) -->
+                <div id="step-download-panel" class="panel hidden" style="text-align: center; padding-top: 50px;">
+                    <div style="font-size: 3rem; color: var(--accent-color);">✓</div>
+                    <h2>File Ready</h2>
+                    <br>
+                    <a id="download-link" href="#" class="btn">Download .EFT File</a>
+                    <br><br><br>
+                    <button id="btn-restart" class="btn btn-secondary">Start Over</button>
+                </div>
+
+            </div>
+
+            <!-- Footer Navigation -->
+            <footer class="wizard-footer" id="main-footer">
+                <button id="btn-back" class="btn btn-secondary hidden">Go Back</button>
+                <div style="flex:1"></div>
+                <button id="btn-next" class="btn hidden">Next Step</button>
+                <button id="btn-submit" class="btn hidden">Confirm & Generate</button>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Global Loading -->
+    <div id="loading" class="hidden">
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; color: white;">Processing...</p>
+    </div>
+
+    <script src="static/codes.js"></script>
+    <script src="static/app.js"></script>
+</body>
+
+</html>

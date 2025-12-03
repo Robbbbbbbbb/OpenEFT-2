@@ -1,0 +1,53 @@
+
+Libpng 1.2.23 - November 6, 2007
+
+This is a public release of libpng, intended for use in production codes.
+
+Files available for download:
+
+Source files with LF line endings (for Unix/Linux) and with a
+"configure" script
+
+   libpng-1.2.23.tar.gz
+   libpng-1.2.23.tar.bz2
+
+Source files with LF line endings (for Unix/Linux) without the
+"configure" script
+
+   libpng-1.2.23-no-config.tar.gz
+   libpng-1.2.23-no-config.tar.bz2
+
+Source files with CRLF line endings (for Windows), without the
+"configure" script
+
+   lpng1223.zip
+   lpng1223.tar.bz2
+
+Project files
+
+   libpng-1.2.23-project-netware.zip
+   libpng-1.2.23-project-wince.zip
+
+Other information:
+
+   libpng-1.2.23-README.txt
+   libpng-1.2.23-KNOWNBUGS.txt
+   libpng-1.2.23-LICENSE.txt
+   libpng-1.2.23-Y2K-compliance.txt
+
+Changes since the last public release (1.2.22):
+
+version 1.2.23 [November 6, 2007]
+
+  Reduced number of invocations of png_strlen() in pngset.c.
+  Changed [azAZ09_] to [_abcde...89] in Makefile.am for better localization.
+  Eliminated png_strncpy() and png_strcpy() (Pierre Poissinger)
+  Reject attempt to set all-zero cHRM values.
+  Add missing quotes in projects/visualc6 that were lost in version 1.2.20
+
+Send comments/corrections/commendations to png-mng-implement at lists.sf.net
+(subscription required; visit 
+https://lists.sourceforge.net/lists/listinfo/png-mng-implement
+to subscribe) or to glennrp at users.sourceforge.net
+
+Glenn R-P

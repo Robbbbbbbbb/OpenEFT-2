@@ -1,0 +1,415 @@
+:root {
+    --bg-color: #1a1a1a;
+    --sidebar-bg: #111111;
+    --panel-bg: #252525;
+    --text-color: #e0e0e0;
+    --text-muted: #aaaaaa;
+    --accent-color: #bada55;
+    --accent-hover: #a0c040;
+    --border-color: #333333;
+    --input-bg: #333333;
+    --danger-color: #e74c3c;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    height: 100vh;
+    overflow: hidden; /* App-like feel */
+}
+
+/* Layout */
+.app-container {
+    display: flex;
+    height: 100%;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.logo-container {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.logo-container img {
+    max-width: 100%;
+    height: auto;
+}
+
+.nav-links {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+.nav-links li {
+    padding: 15px 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-left: 3px solid transparent;
+}
+
+.nav-links li:hover, .nav-links li.active {
+    background-color: var(--panel-bg);
+    color: var(--accent-color);
+    border-left-color: var(--accent-color);
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.top-bar {
+    height: 60px;
+    background-color: var(--panel-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    justify-content: space-between;
+}
+
+.top-bar h1 {
+    font-size: 1.2rem;
+    margin: 0;
+    font-weight: 500;
+}
+
+/* Wizard Progress */
+.wizard-progress {
+    padding: 20px 40px;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.progress-labels {
+    display: flex;
+    gap: 60px;
+    margin-bottom: 10px;
+}
+
+.progress-step {
+    color: var(--text-muted);
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.progress-step.active, .progress-step.completed {
+    color: var(--accent-color);
+}
+
+.progress-track {
+    width: 60%; /* Or whatever looks good */
+    height: 4px;
+    background-color: #333;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--accent-color);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* Scrollable Content Area */
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    position: relative;
+}
+
+/* Panels */
+.panel {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Canvas Container */
+.canvas-wrapper {
+    background-color: #000;
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden; /* No scroll bars on the container itself, zoom handled by JS/transform */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 60vh; /* Fixed height for canvas area */
+    width: 100%;
+}
+
+canvas {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Forms */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* Organized Layout Classes */
+.form-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.form-section:last-child {
+    border-bottom: none;
+}
+
+.form-section h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-color);
+    font-size: 1.2rem;
+}
+
+.form-grid-2-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.span-full {
+    grid-column: 1 / -1;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+input[type="text"], 
+input[type="number"], 
+input[type="date"], 
+select {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+input:focus, select:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
+/* Buttons */
+.btn {
+    background-color: var(--accent-color);
+    color: #111;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+    text-decoration: none; /* Override global a style */
+}
+
+.btn:hover, .btn:visited {
+    background-color: var(--accent-hover);
+    color: #111;
+    text-decoration: none;
+}
+
+.btn-secondary {
+    background-color: var(--input-bg);
+    color: var(--text-color);
+}
+
+.btn-secondary:hover {
+    background-color: #444;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* Footer Controls */
+.wizard-footer {
+    height: 70px;
+    background-color: var(--panel-bg);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+}
+
+/* File Upload */
+.upload-area {
+    border: 2px dashed var(--border-color);
+    padding: 50px;
+    text-align: center;
+    border-radius: 8px;
+    margin-top: 40px;
+}
+
+.upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent-color);
+    background-color: rgba(186, 218, 85, 0.1);
+    cursor: pointer;
+}
+
+/* Loading Overlay */
+#loading {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.spinner {
+    border: 4px solid #333;
+    border-top: 4px solid var(--accent-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Review Step */
+.review-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.review-summary {
+    background: var(--panel-bg);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.review-images-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.slaps-row {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+
+.thumbs-row {
+    display: flex;
+    justify-content: center;
+}
+
+.review-img-card {
+    background: var(--panel-bg);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    flex: 1; /* Allow slaps to share space */
+    min-width: 0; /* Fix flex overflow issues */
+}
+
+.thumbs-row .review-img-card {
+    flex: 0 0 60%; /* Thumbs wider but centered */
+}
+
+.review-img-card img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border-color);
+}
+
+/* Markdown Dynamic Content */
+#dynamic-content-body {
+    line-height: 1.6;
+}
+#dynamic-content-body h1, #dynamic-content-body h2, #dynamic-content-body h3 {
+    color: var(--text-color);
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+#dynamic-content-body ul, #dynamic-content-body ol {
+    padding-left: 20px;
+    margin-bottom: 1em;
+}
+#dynamic-content-body li {
+    margin-bottom: 0.5em;
+    color: var(--text-color);
+}
+#dynamic-content-body p {
+    margin-bottom: 1em;
+    color: var(--text-color);
+}
+a {
+    color: var(--accent-color); /* #bada55 */
+    font-weight: bold;
+    text-decoration: none;
+}
+a:visited {
+    color: #8a9e3b; /* Secondary matching color */
+}
+a:hover {
+    text-decoration: underline;
+    color: var(--accent-hover);
+}
+
+#dynamic-content-body code {
+    background-color: #333;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+#dynamic-content-body pre {
+    background-color: #333;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}

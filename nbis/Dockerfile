@@ -1,0 +1,54 @@
+FROM python:3.11-slim-bookworm
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    make \
+    cmake \
+    git \
+    libpng-dev \
+    libjpeg-dev \
+    libopenjp2-7-dev \
+    libopenjp2-tools \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+COPY . /app
+
+# Verify setup.sh exists and is executable
+RUN if [ ! -f /app/setup.sh ]; then \
+        echo "ERROR: setup.sh not found in /app. Please run 'docker build .' from the repository root."; \
+        ls -la /app; \
+        exit 1; \
+    fi
+
+# Build NBIS
+RUN chmod +x /app/nbis/setup.sh && \
+    cd /app/nbis && \
+    ./setup.sh /usr/local --without-X11 && \
+    make config && \
+    make it && \
+    make install LIBNBIS=no && \
+    make clean
+
+# Verify NBIS installation
+RUN ls -l /usr/local/bin
+
+# Add NBIS to PATH
+ENV PATH="/usr/local/bin:${PATH}"
+
+# Install Python dependencies
+RUN pip install --no-cache-dir fastapi uvicorn python-multipart opencv-python-headless numpy imutils pillow jinja2
+
+# Create directory for temp files
+RUN mkdir -p /app/temp
+
+# Expose port
+EXPOSE 8080
+
+# Command to run the application
+# If the app fails, the container will stay running for debugging.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 8080 || tail -f /dev/null"]
