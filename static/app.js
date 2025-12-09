@@ -5,6 +5,7 @@ let image = new Image(); // For verification/box selection (Step 1)
 let cropImage = new Image(); // For crop step (Step 1)
 let boxes = []; // Array of fingerprint boxes
 let activeBoxIndex = -1;
+let isCaptureSession = false; // Track if session is from capture
 
 // Crop State
 let cropRotation = 0;
@@ -258,8 +259,44 @@ function updateWizardUI() {
     } else if (currentStep === 4) { // Download
         panelDownload.classList.remove('hidden');
         document.getElementById('main-footer').classList.add('hidden');
+        loadSupportInfo();
     }
 }
+
+async function loadSupportInfo() {
+    const el = document.getElementById('support-content');
+    el.innerHTML = '<div style="text-align:center; color:#aaa;">Loading info...</div>';
+
+    const url = "https://raw.githubusercontent.com/Robbbbbbbbb/OpenEFT-2/refs/heads/main/dynamic/supportme.md";
+
+    try {
+        const res = await fetch(url + "?t=" + new Date().getTime());
+        if (res.ok) {
+            const text = await res.text();
+            el.innerHTML = marked.parse(text);
+
+            // Style links
+            el.querySelectorAll('a').forEach(a => {
+                a.setAttribute('target', '_blank');
+                a.setAttribute('rel', 'noopener noreferrer');
+                a.style.color = 'var(--accent-color)';
+                a.style.textDecoration = 'none';
+            });
+        } else {
+            throw new Error("Content unavailable");
+        }
+    } catch (e) {
+        el.innerHTML = `
+            <div style="text-align:center;">
+                <h3>OpenEFT-2</h3>
+                <p>Check out the project on GitHub:</p>
+                <p><a href="https://github.com/Robbbbbbbbb/OpenEFT-2/" target="_blank" style="color:var(--accent-color); text-decoration:none;">https://github.com/Robbbbbbbbb/OpenEFT-2/</a></p>
+            </div>
+        `;
+    }
+}
+
+
 
 // Next Button Logic
 btnNext.onclick = async () => {
@@ -338,6 +375,7 @@ async function handleFileUpload(file) {
         const data = await res.json();
 
         sessionId = data.session_id;
+        isCaptureSession = false;
 
         cropImage.onload = () => {
             currentSubStep = 'crop';
@@ -568,14 +606,18 @@ function drawVerifyCanvas() {
     verifyCtx.lineWidth = 10;
 
     boxes.forEach((box, index) => {
-        verifyCtx.strokeStyle = index === activeBoxIndex ? '#bada55' : '#3498db';
+        // High contrast colors: Active=Magenta (#FF00FF), Inactive=Cyan (#00FFFF) or Lime (#00FF00)
+        // User requested high contrast, not blue/black.
+        const isActive = index === activeBoxIndex;
+        verifyCtx.strokeStyle = isActive ? '#FF00FF' : '#00FF00';
         verifyCtx.strokeRect(box.x, box.y, box.w, box.h);
         verifyCtx.fillStyle = verifyCtx.strokeStyle;
         verifyCtx.font = 'bold 40px Arial';
         verifyCtx.fillText(box.id, box.x, box.y - 10);
 
-        if (index === activeBoxIndex) {
-            verifyCtx.fillStyle = 'white';
+        if (isActive) {
+            // Drag Handles: Bright Yellow/Orange for contrast
+            verifyCtx.fillStyle = '#FFD700'; // Gold
             const handleSize = 40;
             verifyCtx.fillRect(box.x - handleSize / 2, box.y - handleSize / 2, handleSize, handleSize);
             verifyCtx.fillRect(box.x + box.w - handleSize / 2, box.y - handleSize / 2, handleSize, handleSize);
@@ -586,6 +628,7 @@ function drawVerifyCanvas() {
 
     verifyCtx.restore();
 }
+
 
 verifyCanvas.onmousedown = (e) => {
     const { x, y } = getVerifyMousePos(e);
@@ -651,12 +694,21 @@ function resizeBox(box, handle, mx, my) {
         const newW = (box.x + box.w) - mx;
         const newH = (box.y + box.h) - my;
         if (newW > 10 && newH > 10) { box.x = mx; box.y = my; box.w = newW; box.h = newH; }
+    } else if (handle === 'tr') {
+        const newW = mx - box.x;
+        const newH = (box.y + box.h) - my;
+        if (newW > 10 && newH > 10) { box.y = my; box.w = newW; box.h = newH; }
+    } else if (handle === 'bl') {
+        const newW = (box.x + box.w) - mx;
+        const newH = my - box.y;
+        if (newW > 10 && newH > 10) { box.x = mx; box.w = newW; box.h = newH; }
     } else if (handle === 'br') {
         const newW = mx - box.x;
         const newH = my - box.y;
         if (newW > 10 && newH > 10) { box.w = newW; box.h = newH; }
     }
 }
+
 
 function getCursorForHandle(handle) {
     return (handle === 'tl' || handle === 'br') ? 'nwse-resize' : 'nesw-resize';
@@ -796,12 +848,73 @@ btnSubmit.onclick = async () => {
         currentStep = 4;
         updateWizardUI();
 
+        // Show FD258 button if capture session
+        if (isCaptureSession) {
+            document.getElementById('btn-dl-fd258').classList.remove('hidden');
+        } else {
+            document.getElementById('btn-dl-fd258').classList.add('hidden');
+        }
+
     } catch (e) {
         alert(e.message);
     } finally {
         showLoading(false);
     }
 };
+
+
+document.getElementById('btn-dl-fd258').onclick = async () => {
+
+    const formData = new FormData(document.getElementById('type2-form'));
+    const data = Object.fromEntries(formData.entries());
+
+    const noMn = document.getElementById('no-mn').checked;
+    let mname = data.mname || "";
+    if (noMn) mname = "NMN";
+
+    const fullName = `${data.lname},${data.fname},${mname}`;
+    data["2.018"] = fullName;
+
+    const cleanAddr = [data.addr_street, data.addr_city, data.addr_state, data.addr_zip]
+        .map(s => s.replace(/[^a-zA-Z0-9\s]/g, "").trim())
+        .join(" ");
+    data["2.041"] = cleanAddr;
+
+    const dobInput = document.getElementById('dob-input').value;
+    if (dobInput) data["2.022"] = dobInput.replace(/-/g, "");
+
+    const payload = {
+        session_id: sessionId,
+        boxes: boxes,
+        type2_data: data,
+        mode: selectedGenMode
+    };
+
+    showLoading(true);
+    try {
+        const res = await fetch('/api/generate_fd258', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error((await res.json()).detail || "Generation failed");
+
+        const result = await res.json();
+        // Trigger download
+        const a = document.createElement('a');
+        a.href = result.download_url;
+        a.download = result.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+    } catch (e) {
+        alert(e.message);
+    } finally {
+        showLoading(false);
+    }
+}
 
 document.getElementById('btn-restart').onclick = () => window.location.reload();
 
@@ -1006,6 +1119,7 @@ async function finalizeCapture() {
         if (!res.ok) throw new Error("Failed to start session");
         const data = await res.json();
         sessionId = data.session_id;
+        isCaptureSession = true;
 
         // Populate boxes for generator
         boxes = [

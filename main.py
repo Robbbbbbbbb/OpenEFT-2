@@ -19,6 +19,9 @@ from services.eft_generator import generate_eft
 from services.fingerprint import Fingerprint
 from services.eft_parser import EFTParser
 from services.eft_editor import EFTEditor
+from services.fd258_generator import FD258Generator
+from services.nbis_helper import decode_wsq
+
 
 app = FastAPI()
 
@@ -491,3 +494,173 @@ async def delete_session(session_id: str):
             del SESSIONS[session_id]
         return {"message": "Deleted"}
     raise HTTPException(status_code=404, detail="Session not found")
+
+class RawFP:
+    def __init__(self, p, w=0, h=0, is_raw=False):
+        self.img_path = p
+        self.w = w
+        self.h = h
+        self.is_raw = is_raw
+
+class SimpleFP:
+    def __init__(self, p, w=0, h=0): 
+        self.img_path = p
+        self.w = w
+        self.h = h
+
+
+@app.post("/api/generate_fd258")
+async def generate_fd258(data: GenerateRequest):
+    # Get session
+    session_id = data.session_id
+    if session_id not in SESSIONS:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session_data = SESSIONS[session_id]
+    session_dir = os.path.join(TMP_DIR, session_id)
+    
+    # FD258 generation is only available for capture mode
+    if session_data.get("mode") != "capture":
+        raise HTTPException(status_code=400, detail="Only available for capture sessions")
+
+    # Load images_map
+    images_map = session_data["images"]
+    print(f"DEBUG: images_map keys: {list(images_map.keys())}")
+    
+    # Process slaps (13, 14, 15) to get segments
+    fp_objects = {}
+    
+    for fp_num in [13, 14, 15]:
+        target_path = None
+        # Robust key (int or str) and path check
+        if fp_num in images_map:
+            target_path = images_map[fp_num]
+        elif str(fp_num) in images_map:
+            target_path = images_map[str(fp_num)]
+            
+        if target_path:
+             if not os.path.exists(target_path):
+                 print(f"DEBUG: Image path not found: {target_path}")
+                 continue
+                 
+             img = cv2.imread(target_path)
+             if img is None: 
+                 print(f"DEBUG: Failed to load image with cv2: {target_path}")
+                 continue
+             
+             print(f"DEBUG: Loaded FP {fp_num} from {target_path}, shape={img.shape}")
+             fp = Fingerprint(img, fp_num, session_dir, session_id)
+
+             # Saves png and runs segment()
+             # Note: Using a lower compression ratio for intermediate processing, 
+             # but here we just want segmentation side effects.
+             fp.process_and_convert(compression_ratio=10) 
+             
+             # Double check segmentation didn't fail silently
+             if not fp.fingers:
+                 print(f"FP {fp_num} has no segments after process. Forcing segment().")
+                 fp.segment()
+                 
+             fp_objects[fp_num] = fp
+             print(f"FP {fp_num} has {len(fp.fingers)} segments: {[f.n for f in fp.fingers]}")
+
+
+
+    # Collect printable images
+    prints_map = {}
+    
+    for fp in fp_objects.values():
+         # 1. Plain boxes (Slaps)
+         # Map the full slap images to their respective plain codes
+         if fp.fp_number == 13:
+             prints_map[13] = fp # R Slap -> P_R4
+         elif fp.fp_number == 14:
+             prints_map[14] = fp # L Slap -> P_L4
+             
+         # 2. Segments (Rolled boxes 1-10)
+         for finger in fp.fingers:
+             try:
+                 fn = int(finger.n)
+                 seg_path = os.path.join(session_dir, finger.name)
+                 if fp.fp_number == 14:
+                     # Swap 7 <-> 10 to properly place prints in order
+                     if fn == 7: fn = 10
+                     elif fn == 10: fn = 7
+                     # Swap 8 <-> 9  to properly place prints in order
+                     elif fn == 8: fn = 9
+                     elif fn == 9: fn = 8
+                     print(f"Swapped Left Hand Segment {finger.n} -> {fn}")
+
+                 
+
+                 # Check/Decode WSQ or RAW
+                 if seg_path.endswith('.wsq'):
+                     if os.path.exists(seg_path):
+                         # Decode to RAW
+                         raw_path = decode_wsq(seg_path)
+                         sfp = RawFP(raw_path, finger.sw, finger.sh, is_raw=True)
+                     else:
+                         print(f"WSQ not found: {seg_path}")
+                         continue
+                 elif seg_path.endswith('.raw'):
+                     if os.path.exists(seg_path):
+                         sfp = RawFP(seg_path, finger.sw, finger.sh, is_raw=True)
+                     else:
+                          print(f"RAW not found: {seg_path}")
+                          continue
+                 elif os.path.exists(seg_path):
+                     # Assume standard image and not WSQ or RAW
+                     sfp = RawFP(seg_path)
+                 else:
+                     print(f"Segment file not found: {seg_path}")
+                     continue
+                     
+                 # Map 1-10 (Rolled)
+                 if 1 <= fn <= 10:
+                     prints_map[fn] = sfp
+                     print(f"Mapped Segment {fn} from {seg_path}")
+                 
+                 # Handling Thumbs from FP 15 (which return segments 11 and 12)
+                 # Map 11 -> 1 (Rolled R Thumb) and 11 (Plain R Thumb)
+                 # Map 12 -> 6 (Rolled L Thumb) and 12 (Plain L Thumb)
+                 if fn == 11:
+                     prints_map[1] = sfp  # Rolled R Thumb
+                     prints_map[11] = sfp # Plain R Thumb
+                     print(f"Mapped Segment {fn} to 1 and 11")
+                 elif fn == 12:
+                     prints_map[6] = sfp  # Rolled L Thumb
+                     prints_map[12] = sfp # Plain L Thumb
+                     print(f"Mapped Segment {fn} to 6 and 12")
+                     
+                 # Map Segments to Plain Thumbs 11/12 (Legacy checking 1/6)
+                 if fn == 1:
+                     prints_map[11] = sfp # P_RT (11) mapping to layout "P_RT"
+                 elif fn == 6:
+                     prints_map[12] = sfp # P_LT (12) mapping to layout "P_LT"
+
+                             
+             except Exception as e:
+                 print(f"Error processing segment for FP {fp.fp_number}: {e}")
+
+    print(f"DEBUG: Final prints_map keys: {list(prints_map.keys())}")
+
+
+
+                 
+    # Generate FD258
+    try:
+        generator = FD258Generator("static/img/fd258-blank.jpg")
+        img_bytes = generator.generate(data.type2_data, prints_map)
+        
+        # Save
+        filename = f"fd258-{session_id}.jpg"
+        out_path = os.path.join(session_dir, filename)
+        with open(out_path, "wb") as f:
+            f.write(img_bytes)
+            
+        return {"download_url": f"/api/download/{session_id}/{filename}", "filename": filename}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"FD258 Generation failed: {str(e)}")
+
