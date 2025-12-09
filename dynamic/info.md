@@ -35,6 +35,12 @@ This mode is an "Advanced" mode that allows the user to edit the raw values of a
 
 # Changelog
 
+### v2.0.2
+
+1. Added FD258 generation for live capture
+2. Changed the color of fingerprint segmentation boxes to make them easier to see
+3. Fixed the fingerprint segmentation box drag handles
+
 ### v2.0.1
 
 OEFT2 is here! Aside from the complete rewrite, there are two improvements worth noting here:
